@@ -1,0 +1,38 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weekend Wars | Spelersdashboard</title><style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#101013;color:#f7f7f8;font:16px/1.5 system-ui,sans-serif}.wrap{max-width:760px;margin:auto;padding:22px 16px 50px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #38383c;padding-bottom:14px;margin-bottom:28px}.logo{font-weight:900;letter-spacing:.14em}.logo span{color:#d83a4a}h1{font-size:clamp(28px,6vw,42px);line-height:1.1;margin:8px 0}h2{font-size:19px;margin:0 0 12px}.muted{color:#b8b8bf}.eyebrow{color:#e76773;font-size:12px;letter-spacing:.15em;text-transform:uppercase;font-weight:800}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{background:#1e1e23;border:1px solid #393940;border-radius:14px;padding:18px;margin:14px 0}.stat{font-size:30px;font-weight:800}.item{padding:12px 0;border-top:1px solid #35353b}.item:first-of-type{border-top:0}button{font:inherit;cursor:pointer;background:#b8293c;color:white;border:0;border-radius:9px;padding:10px 14px}button.secondary{background:#38383f}#message{padding:14px;background:#2a2226;border:1px solid #61323a;border-radius:9px;white-space:pre-wrap}a{color:#ff8992}small{color:#b8b8bf}@media(max-width:460px){.grid{grid-template-columns:1fr}}
+</style></head><body><div class="wrap"><header><div class="logo">WEEKEND <span>WARS</span></div><button class="secondary" id="refresh">Vernieuwen</button></header><div class="eyebrow">Münster 2027 · Spelersomgeving</div><h1 id="welcome">Je dossier wordt geladen…</h1><p class="muted" id="subtitle">Je ziet alleen informatie waarvoor jouw spelersprofiel toegang heeft.</p><div id="message" role="status">Beveiligde verbinding controleren…</div><div id="dashboard" hidden><div class="grid"><div class="card"><div class="eyebrow">Jouw punten</div><div class="stat" id="points">0</div></div><div class="card"><div class="eyebrow">Status</div><div class="stat" style="font-size:18px">Speler actief</div></div></div><section class="card"><h2>Weekendplanning</h2><div id="activities"></div></section><section class="card"><h2>Geheime missies</h2><p class="muted">Binnenkort beschikbaar zodra de beveiligde missiefunctie klaar is.</p></section><p><small>Testversie 7.1: alleen lezen. Geheime missies volgen na extra beveiliging.</small></p></div></div>
+<script type="module">
+import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+// Vul dezelfde twee PUBLIEKE waarden in als in 04_test_login.html.
+const PROJECT_URL='https://zdezfkqmhbociagldlgo.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_c-MVxESLRtAU1xtzZyD1Gg_ytJB18pR';
+const $=id=>document.getElementById(id);
+const login='./04_test_login.html';
+const message=t=>{$('message').textContent=t;$('message').hidden=false};
+const item=(container,title,detail)=>{const d=document.createElement('div');d.className='item';const b=document.createElement('strong');b.textContent=title;const p=document.createElement('div');p.className='muted';p.textContent=detail;d.append(b,p);container.append(d)};
+const fail=(name,error)=>{if(error)throw new Error(name+': '+error.message)};
+if(PROJECT_URL.startsWith('PASTE_')||PUBLISHABLE_KEY.startsWith('PASTE_'))message('Vul eerst je Project URL en Publishable Key in dit bestand in.');
+else{
+const sb=createClient(PROJECT_URL,PUBLISHABLE_KEY);
+async function load(){try{
+  $('dashboard').hidden=true;message('Spelerssessie controleren…');
+  const {data:{session},error:se}=await sb.auth.getSession();fail('Sessie',se);
+  if(!session){message('Je bent nog niet aangemeld. Open eerst het inlogscherm.');return}
+  const {data:{user},error:ue}=await sb.auth.getUser();fail('Gebruiker',ue);
+  if(!user){message('Geen geldige speler gevonden. Open het inlogscherm.');return}
+  const {data:player,error:pe}=await sb.from('players').select('id,display_name,weekend_id').eq('auth_user_id',user.id).maybeSingle();fail('Speler',pe);
+  if(!player){message('Je gastsessie is actief, maar nog niet gekoppeld aan een speler. Gebruik het bestaande inlogscherm.');return}
+  const {data:weekend,error:we}=await sb.from('weekends').select('title,starts_on,ends_on').eq('id',player.weekend_id).single();fail('Weekend',we);
+  const {data:activities,error:ae}=await sb.from('activities').select('title,location,starts_at').eq('weekend_id',player.weekend_id).order('starts_at',{ascending:true});fail('Activiteiten',ae);
+  const {data:awards,error:poe}=await sb.from('point_awards').select('points').eq('player_id',player.id);fail('Punten',poe);
+  $('welcome').textContent='Welkom, '+player.display_name+'.';
+  $('subtitle').textContent=weekend.title+' · '+weekend.starts_on+(weekend.ends_on?' t/m '+weekend.ends_on:'');
+  $('points').textContent=(awards||[]).reduce((s,a)=>s+a.points,0);
+  $('activities').replaceChildren();
+  if(!activities?.length)item($('activities'),'Nog geen activiteiten','De spelleider voegt de planning later toe.');
+  else for(const a of activities)item($('activities'),a.title,[a.starts_at?new Date(a.starts_at).toLocaleString('nl-NL',{dateStyle:'medium',timeStyle:'short'}):'',a.location||''].filter(Boolean).join(' · '));
+  $('message').hidden=true;$('dashboard').hidden=false;
+}catch(e){message('Laden niet gelukt: '+e.message)}}
+$('refresh').onclick=load;load();
+}
+</script></body></html>
