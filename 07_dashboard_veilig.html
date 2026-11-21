@@ -30,7 +30,14 @@ async function load(){try{
   if(!player){message('Je gastsessie is actief, maar nog niet gekoppeld aan een speler. Gebruik het bestaande inlogscherm.');return}
   const {data:weekend,error:we}=await sb.from('weekends').select('title,starts_on,ends_on').eq('id',player.weekend_id).single();fail('Weekend',we);
   const {data:activities,error:ae}=await sb.from('activities').select('title,location,starts_at').eq('weekend_id',player.weekend_id).order('starts_at',{ascending:true});fail('Activiteiten',ae);
-  const {data:awards,error:poe}=await sb.from('point_awards').select('points').eq('player_id',player.id);fail('Punten',poe);
+  
+  const {data:assignments,error:me}=await sb
+    .from('mission_assignments')
+    .select('missions(title,description,points)')
+    .eq('player_id',player.id);
+
+  fail('Geheime missies',me);
+
   $('welcome').textContent='Welkom, '+player.display_name+'.';
   $('subtitle').textContent=weekend.title+' · '+weekend.starts_on+(weekend.ends_on?' t/m '+weekend.ends_on:'');
   $('points').textContent=(awards||[]).reduce((s,a)=>s+a.points,0);
