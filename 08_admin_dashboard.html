@@ -178,9 +178,22 @@ async function loadDashboard(){
   showMessage('Spelleidersaccount controleren…');
 
   try{
-    const {data:{user},error:userError}=
-      await sb.auth.getUser();
-    check(userError);
+    
+const {data:{session},error:sessionError}=
+  await sb.auth.getSession();
+check(sessionError);
+
+if(!session){
+  $('login').hidden=false;
+  $('logout').hidden=true;
+  showMessage('Log in met je spelleidersaccount.');
+  return;
+}
+
+const {data:{user},error:userError}=
+  await sb.auth.getUser();
+check(userError);
+
 
     if(!user){
       $('login').hidden=false;
