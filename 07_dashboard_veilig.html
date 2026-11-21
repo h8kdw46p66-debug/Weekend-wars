@@ -5,105 +5,52 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Weekend Wars | Spelersdashboard</title>
-
 <style>
 :root{color-scheme:dark}
 *{box-sizing:border-box}
-body{
-  margin:0;
-  background:#101013;
-  color:#f7f7f8;
-  font:16px/1.5 system-ui,sans-serif;
-}
+body{margin:0;background:#101013;color:#f7f7f8;font:16px/1.5 system-ui,sans-serif}
 .wrap{max-width:760px;margin:auto;padding:22px 16px 50px}
-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  border-bottom:1px solid #38383c;
-  padding-bottom:14px;
-  margin-bottom:28px;
-}
+header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #38383c;padding-bottom:14px;margin-bottom:28px}
 .logo{font-weight:900;letter-spacing:.14em}
 .logo span{color:#d83a4a}
 h1{font-size:clamp(28px,6vw,42px);line-height:1.1;margin:8px 0}
 h2{font-size:19px;margin:0 0 12px}
 .muted{color:#b8b8bf}
-.eyebrow{
-  color:#e76773;
-  font-size:12px;
-  letter-spacing:.15em;
-  text-transform:uppercase;
-  font-weight:800;
-}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:12px;
-}
-.card{
-  background:#1e1e23;
-  border:1px solid #393940;
-  border-radius:14px;
-  padding:18px;
-  margin:14px 0;
-}
+.eyebrow{color:#e76773;font-size:12px;letter-spacing:.15em;text-transform:uppercase;font-weight:800}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{background:#1e1e23;border:1px solid #393940;border-radius:14px;padding:18px;margin:14px 0}
 .stat{font-size:30px;font-weight:800}
 .item{padding:12px 0;border-top:1px solid #35353b}
 .item:first-of-type{border-top:0}
-button{
-  font:inherit;
-  cursor:pointer;
-  background:#b8293c;
-  color:white;
-  border:0;
-  border-radius:9px;
-  padding:10px 14px;
-}
+button{font:inherit;cursor:pointer;background:#b8293c;color:white;border:0;border-radius:9px;padding:10px 14px}
 button.secondary{background:#38383f}
-#message{
-  padding:14px;
-  background:#2a2226;
-  border:1px solid #61323a;
-  border-radius:9px;
-  white-space:pre-wrap;
-}
+button:disabled{opacity:.55;cursor:not-allowed}
+.mission-button{margin-top:12px}
+.mission-status{font-size:14px;color:#ffb2b9;margin-top:10px}
+#message{padding:14px;background:#2a2226;border:1px solid #61323a;border-radius:9px;white-space:pre-wrap}
 a{color:#ff8992}
 small{color:#b8b8bf}
-@media(max-width:460px){
-  .grid{grid-template-columns:1fr}
-}
+@media(max-width:460px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
-
 <body>
 <div class="wrap">
-
 <header>
   <div class="logo">WEEKEND <span>WARS</span></div>
   <button class="secondary" id="refresh">Vernieuwen</button>
 </header>
 
 <div class="eyebrow">Münster 2027 · Spelersomgeving</div>
-
 <h1 id="welcome">Je dossier wordt geladen…</h1>
-
-<p class="muted" id="subtitle">
-  Je ziet alleen informatie waarvoor jouw spelersprofiel toegang heeft.
-</p>
-
-<div id="message" role="status">
-  Beveiligde verbinding controleren…
-</div>
+<p class="muted" id="subtitle">Je ziet alleen informatie waarvoor jouw spelersprofiel toegang heeft.</p>
+<div id="message" role="status">Beveiligde verbinding controleren…</div>
 
 <div id="dashboard" hidden>
-
   <div class="grid">
     <div class="card">
       <div class="eyebrow">Jouw punten</div>
       <div class="stat" id="points">0</div>
     </div>
-
     <div class="card">
       <div class="eyebrow">Status</div>
       <div class="stat" style="font-size:18px">Speler actief</div>
@@ -117,67 +64,74 @@ small{color:#b8b8bf}
 
   <section class="card">
     <h2>Geheime missies</h2>
-    <p class="muted">
-      Dit zijn de missies die voor jou zijn vrijgegeven.
-    </p>
+    <p class="muted">Dit zijn de missies die voor jou zijn vrijgegeven.</p>
     <div id="missions"></div>
   </section>
 
-  <p>
-    <small>
-      Testversie 7.2: persoonlijke missies en weekendplanning.
-      Alleen lezen.
-    </small>
-  </p>
-
+  <p><small>Testversie 7.3: missies indienen. Beoordeling volgt.</small></p>
 </div>
 </div>
 
 <script type="module">
-
-import {createClient}
-from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const PROJECT_URL='https://zdezfkqmhbociagldlgo.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_c-MVxESLRtAU1xtzZyD1Gg_ytJB18pR';
 
 const $=id=>document.getElementById(id);
+const sb=createClient(PROJECT_URL,PUBLISHABLE_KEY);
 
 const message=t=>{
   $('message').textContent=t;
   $('message').hidden=false;
 };
 
-const item=(container,title,detail)=>{
-  const d=document.createElement('div');
-  d.className='item';
-
-  const b=document.createElement('strong');
-  b.textContent=title;
-
-  const p=document.createElement('div');
-  p.className='muted';
-  p.textContent=detail;
-
-  d.append(b,p);
-  container.append(d);
-};
-
 const fail=(name,error)=>{
   if(error)throw new Error(name+': '+error.message);
 };
 
-const sb=createClient(PROJECT_URL,PUBLISHABLE_KEY);
+const item=(container,title,detail)=>{
+  const d=document.createElement('div');
+  d.className='item';
+  const b=document.createElement('strong');
+  b.textContent=title;
+  const p=document.createElement('div');
+  p.className='muted';
+  p.textContent=detail;
+  d.append(b,p);
+  container.append(d);
+};
+
+async function submitMission(assignmentId,button,statusElement){
+  if(!confirm('Weet je zeker dat je deze missie wilt indienen?')){
+    return;
+  }
+
+  button.disabled=true;
+  statusElement.textContent='Missie indienen…';
+
+  const {data,error}=await sb.rpc(
+    'submit_weekend_mission',
+    {p_assignment_id:assignmentId}
+  );
+
+  if(error){
+    statusElement.textContent='Niet gelukt: '+error.message;
+    button.disabled=false;
+    return;
+  }
+
+  statusElement.textContent='Wacht op beoordeling';
+  button.textContent='Ingediend';
+  button.disabled=true;
+}
 
 async function load(){
 try{
-
   $('dashboard').hidden=true;
   message('Spelerssessie controleren…');
 
-  const {data:{session},error:se}
-    =await sb.auth.getSession();
-
+  const {data:{session},error:se}=await sb.auth.getSession();
   fail('Sessie',se);
 
   if(!session){
@@ -185,9 +139,7 @@ try{
     return;
   }
 
-  const {data:{user},error:ue}
-    =await sb.auth.getUser();
-
+  const {data:{user},error:ue}=await sb.auth.getUser();
   fail('Gebruiker',ue);
 
   if(!user){
@@ -195,12 +147,10 @@ try{
     return;
   }
 
-  const {data:player,error:pe}
-    =await sb.from('players')
-      .select('id,display_name,weekend_id')
-      .eq('auth_user_id',user.id)
-      .maybeSingle();
-
+  const {data:player,error:pe}=await sb.from('players')
+    .select('id,display_name,weekend_id')
+    .eq('auth_user_id',user.id)
+    .maybeSingle();
   fail('Speler',pe);
 
   if(!player){
@@ -208,68 +158,63 @@ try{
     return;
   }
 
-  const {data:weekend,error:we}
-    =await sb.from('weekends')
-      .select('title,starts_on,ends_on')
-      .eq('id',player.weekend_id)
-      .single();
-
+  const {data:weekend,error:we}=await sb.from('weekends')
+    .select('title,starts_on,ends_on')
+    .eq('id',player.weekend_id)
+    .single();
   fail('Weekend',we);
 
-  const {data:activities,error:ae}
-    =await sb.from('activities')
-      .select('title,location,starts_at')
-      .eq('weekend_id',player.weekend_id)
-      .order('starts_at',{ascending:true});
-
+  const {data:activities,error:ae}=await sb.from('activities')
+    .select('title,location,starts_at')
+    .eq('weekend_id',player.weekend_id)
+    .order('starts_at',{ascending:true});
   fail('Activiteiten',ae);
 
-  const {data:awards,error:poe}
-    =await sb.from('point_awards')
-      .select('points')
-      .eq('player_id',player.id);
-
+  const {data:awards,error:poe}=await sb.from('point_awards')
+    .select('points')
+    .eq('player_id',player.id);
   fail('Punten',poe);
 
-  // GEHEIME MISSIES OPHALEN
-  const {data:assignments,error:me}
-    =await sb.from('mission_assignments')
-      .select('missions(title,description,points)')
-      .eq('player_id',player.id);
-
+  const {data:assignments,error:me}=await sb.from('mission_assignments')
+    .select('id,missions(title,description,points)')
+    .eq('player_id',player.id);
   fail('Geheime missies',me);
 
-  // SPELERSGEGEVENS TONEN
-  $('welcome').textContent=
-    'Welkom, '+player.display_name+'.';
+  // Haal bestaande inzendingen op.
+  const assignmentIds=(assignments||[])
+    .filter(a=>a.missions)
+    .map(a=>a.id);
 
-  $('subtitle').textContent=
-    weekend.title+' · '+weekend.starts_on+
+  let submissions=[];
+
+  if(assignmentIds.length){
+    const {data,error}=await sb.from('submissions')
+      .select('assignment_id,status')
+      .in('assignment_id',assignmentIds);
+    fail('Inzendingen',error);
+    submissions=data||[];
+  }
+
+  $('welcome').textContent='Welkom, '+player.display_name+'.';
+  $('subtitle').textContent=weekend.title+' · '+weekend.starts_on+
     (weekend.ends_on?' t/m '+weekend.ends_on:'');
 
-  $('points').textContent=
-    (awards||[]).reduce((s,a)=>s+a.points,0);
+  $('points').textContent=(awards||[])
+    .reduce((s,a)=>s+a.points,0);
 
-  // WEEKENDPLANNING TONEN
   $('activities').replaceChildren();
 
   if(!activities?.length){
-    item(
-      $('activities'),
-      'Nog geen activiteiten',
-      'De spelleider voegt de planning later toe.'
-    );
+    item($('activities'),'Nog geen activiteiten',
+      'De spelleider voegt de planning later toe.');
   }else{
     for(const a of activities){
-      item(
-        $('activities'),
-        a.title,
+      item($('activities'),a.title,
         [
           a.starts_at
-            ?new Date(a.starts_at).toLocaleString(
-              'nl-NL',
-              {dateStyle:'medium',timeStyle:'short'}
-            )
+            ?new Date(a.starts_at).toLocaleString('nl-NL',{
+              dateStyle:'medium',timeStyle:'short'
+            })
             :'',
           a.location||''
         ].filter(Boolean).join(' · ')
@@ -277,26 +222,60 @@ try{
     }
   }
 
-  // PERSOONLIJKE MISSIES TONEN
   $('missions').replaceChildren();
 
-  const visibleMissions=(assignments||[])
-    .map(a=>a.missions)
-    .filter(m=>m && m.title);
+  const visibleAssignments=(assignments||[])
+    .filter(a=>a.missions && a.missions.title);
 
-  if(!visibleMissions.length){
-    item(
-      $('missions'),
-      'Nog geen geheime missies',
-      'De spelleider heeft nog geen missies vrijgegeven.'
-    );
+  if(!visibleAssignments.length){
+    item($('missions'),'Nog geen geheime missies',
+      'De spelleider heeft nog geen missies vrijgegeven.');
   }else{
-    for(const m of visibleMissions){
-      item(
-        $('missions'),
-        m.title+' · '+m.points+' punten',
-        m.description||'Geheime opdracht'
+    for(const a of visibleAssignments){
+      const m=a.missions;
+
+      const box=document.createElement('div');
+      box.className='item';
+
+      const title=document.createElement('strong');
+      title.textContent=m.title+' · '+m.points+' punten';
+
+      const description=document.createElement('div');
+      description.className='muted';
+      description.textContent=m.description||'Geheime opdracht';
+
+      const statusElement=document.createElement('div');
+      statusElement.className='mission-status';
+
+      const button=document.createElement('button');
+      button.className='mission-button';
+      button.textContent='Missie indienen';
+
+      const existing=submissions.find(
+        s=>s.assignment_id===a.id
       );
+
+      if(existing){
+        button.disabled=true;
+        button.textContent='Ingediend';
+
+        if(existing.status==='pending'){
+          statusElement.textContent='Wacht op beoordeling';
+        }else if(existing.status==='approved'){
+          statusElement.textContent='Goedgekeurd';
+        }else if(existing.status==='rejected'){
+          statusElement.textContent='Afgewezen';
+        }else{
+          statusElement.textContent='Status: '+existing.status;
+        }
+      }else{
+        button.onclick=()=>submitMission(
+          a.id,button,statusElement
+        );
+      }
+
+      box.append(title,description,statusElement,button);
+      $('missions').append(box);
     }
   }
 
@@ -310,7 +289,6 @@ try{
 
 $('refresh').onclick=load;
 load();
-
 </script>
 </body>
 </html>
