@@ -10,7 +10,7 @@
 *{box-sizing:border-box}
 body{margin:0;background:#101013;color:#f7f7f8;font:16px/1.5 system-ui,sans-serif}
 .wrap{max-width:760px;margin:auto;padding:22px 16px 50px}
-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #38383c;padding-bottom:14px;margin-bottom:28px}
+header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #38383c;padding-bottom:14px;margin-bottom:28px;gap:12px}
 .logo{font-weight:900;letter-spacing:.14em}
 .logo span{color:#d83a4a}
 h1{font-size:clamp(28px,6vw,42px);line-height:1.1;margin:8px 0}
@@ -30,6 +30,40 @@ button:disabled{opacity:.55;cursor:not-allowed}
 #message{padding:14px;background:#2a2226;border:1px solid #61323a;border-radius:9px;white-space:pre-wrap}
 a{color:#ff8992}
 small{color:#b8b8bf}
+[hidden]{display:none!important}
+
+/* Klassement */
+.leaderboard-row{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:14px 10px;
+  border-bottom:1px solid #35353b;
+}
+.leaderboard-row:last-child{border-bottom:0}
+.leaderboard-row.me{
+  background:#342329;
+  border:1px solid #85404b;
+  border-radius:10px;
+}
+.rank{font-size:23px;width:38px;text-align:center;flex-shrink:0}
+.player-name{font-weight:700;flex:1;min-width:0;overflow-wrap:anywhere}
+.player-points{font-size:22px;font-weight:800;text-align:right}
+.player-points small{display:block;font-size:11px;font-weight:400}
+.live-indicator{font-size:12px;color:#9cddb7}
+.live-dot{
+  display:inline-block;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#49bd78;
+  margin-right:5px;
+}
+.leaderboard-footer{
+  font-size:12px;
+  color:#b8b8bf;
+  margin-top:12px;
+}
 @media(max-width:460px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -42,8 +76,12 @@ small{color:#b8b8bf}
 
 <div class="eyebrow">Münster 2027 · Spelersomgeving</div>
 <h1 id="welcome">Je dossier wordt geladen…</h1>
-<p class="muted" id="subtitle">Je ziet alleen informatie waarvoor jouw spelersprofiel toegang heeft.</p>
-<div id="message" role="status">Beveiligde verbinding controleren…</div>
+<p class="muted" id="subtitle">
+  Je ziet alleen informatie waarvoor jouw spelersprofiel toegang heeft.
+</p>
+<div id="message" role="status">
+  Beveiligde verbinding controleren…
+</div>
 
 <div id="dashboard" hidden>
   <div class="grid">
@@ -58,17 +96,35 @@ small{color:#b8b8bf}
   </div>
 
   <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <h2>🏆 Klassement</h2>
+      <span class="live-indicator">
+        <span class="live-dot"></span>LIVE
+      </span>
+    </div>
+    <p class="muted">
+      Wie staat er bovenaan? De stand wordt automatisch bijgewerkt.
+    </p>
+    <div id="leaderboard"></div>
+    <div class="leaderboard-footer" id="leaderboardUpdated">
+      Klassement laden…
+    </div>
+  </section>
+
+  <section class="card">
     <h2>Weekendplanning</h2>
     <div id="activities"></div>
   </section>
 
   <section class="card">
     <h2>Geheime missies</h2>
-    <p class="muted">Dit zijn de missies die voor jou zijn vrijgegeven.</p>
+    <p class="muted">
+      Dit zijn de missies die voor jou zijn vrijgegeven.
+    </p>
     <div id="missions"></div>
   </section>
 
-  <p><small>Testversie 7.3: missies indienen. Beoordeling volgt.</small></p>
+  <p><small>Weekend Wars 8.0 · Live klassement</small></p>
 </div>
 </div>
 
@@ -80,6 +136,10 @@ const PUBLISHABLE_KEY='sb_publishable_c-MVxESLRtAU1xtzZyD1Gg_ytJB18pR';
 
 const $=id=>document.getElementById(id);
 const sb=createClient(PROJECT_URL,PUBLISHABLE_KEY);
+
+let currentPlayer=null;
+let leaderboardTimer=null;
+let leaderboardLoading=false;
 
 const message=t=>{
   $('message').textContent=t;
@@ -110,7 +170,7 @@ async function submitMission(assignmentId,button,statusElement){
   button.disabled=true;
   statusElement.textContent='Missie indienen…';
 
-  const {data,error}=await sb.rpc(
+  const {error}=await sb.rpc(
     'submit_weekend_mission',
     {p_assignment_id:assignmentId}
   );
@@ -126,8 +186,95 @@ async function submitMission(assignmentId,button,statusElement){
   button.disabled=true;
 }
 
+/* LIVE KLASSEMENT */
+async function loadLeaderboard(){
+  if(!currentPlayer || leaderboardLoading)return;
+
+  leaderboardLoading=true;
+
+  try{
+    const {data,error}=await sb.rpc('get_weekend_leaderboard');
+    fail('Klassement',error);
+
+    const container=$('leaderboard');
+    container.replaceChildren();
+
+    const players=data||[];
+
+    if(!players.length){
+      item(container,'Nog geen deelnemers',
+        'Het klassement verschijnt zodra er spelers zijn.');
+      return;
+    }
+
+    players.forEach((player,index)=>{
+      const row=document.createElement('div');
+      row.className='leaderboard-row';
+
+      if(player.player_name===currentPlayer.display_name){
+        row.classList.add('me');
+      }
+
+      const rank=document.createElement('div');
+      rank.className='rank';
+      rank.textContent=
+        index===0?'🥇':
+        index===1?'🥈':
+        index===2?'🥉':
+        String(index+1);
+
+      const name=document.createElement('div');
+      name.className='player-name';
+      name.textContent=player.player_name;
+
+      if(player.player_name===currentPlayer.display_name){
+        name.textContent+=' (jij)';
+      }
+
+      const points=document.createElement('div');
+      points.className='player-points';
+      points.textContent=player.total_points;
+
+      const label=document.createElement('small');
+      label.textContent='punten';
+      points.append(label);
+
+      row.append(rank,name,points);
+      container.append(row);
+    });
+
+    const ownRow=players.find(
+      p=>p.player_name===currentPlayer.display_name
+    );
+
+    if(ownRow){
+      $('points').textContent=ownRow.total_points;
+    }
+
+    $('leaderboardUpdated').textContent=
+      'Laatst bijgewerkt: '+
+      new Date().toLocaleTimeString('nl-NL',{
+        hour:'2-digit',
+        minute:'2-digit',
+        second:'2-digit'
+      });
+
+  }catch(error){
+    $('leaderboardUpdated').textContent=
+      'Klassement vernieuwen mislukt: '+error.message;
+  }finally{
+    leaderboardLoading=false;
+  }
+}
+
 async function load(){
 try{
+  if(leaderboardTimer){
+    clearInterval(leaderboardTimer);
+    leaderboardTimer=null;
+  }
+
+  currentPlayer=null;
   $('dashboard').hidden=true;
   message('Spelerssessie controleren…');
 
@@ -158,6 +305,8 @@ try{
     return;
   }
 
+  currentPlayer=player;
+
   const {data:weekend,error:we}=await sb.from('weekends')
     .select('title,starts_on,ends_on')
     .eq('id',player.weekend_id)
@@ -180,7 +329,6 @@ try{
     .eq('player_id',player.id);
   fail('Geheime missies',me);
 
-  // Haal bestaande inzendingen op.
   const assignmentIds=(assignments||[])
     .filter(a=>a.missions)
     .map(a=>a.id);
@@ -281,6 +429,10 @@ try{
 
   $('message').hidden=true;
   $('dashboard').hidden=false;
+
+  await loadLeaderboard();
+
+  leaderboardTimer=setInterval(loadLeaderboard,15000);
 
 }catch(e){
   message('Laden niet gelukt: '+e.message);
