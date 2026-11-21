@@ -1,0 +1,113 @@
+
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>Weekend Wars | Beveiligingstest</title>
+  <style>
+    body {
+      background: #101013;
+      color: white;
+      font: 16px system-ui, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    button {
+      background: #b8293c;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 14px;
+      cursor: pointer;
+    }
+    pre {
+      white-space: pre-wrap;
+      background: #24242a;
+      padding: 16px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Weekend Wars 7.5</h1>
+  <h2>Beveiligingstest</h2>
+
+  <p id="account">Account controleren...</p>
+
+  <button id="test" disabled>
+    Test onbevoegde beoordeling
+  </button>
+
+  <pre id="result">Nog niet getest.</pre>
+
+  <script type="module">
+    import { createClient } from
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const sb = createClient(
+      'https://zdezfkqmhbociagldlgo.supabase.co',
+      'sb_publishable_c-MVxESLRtAU1xtzZyD1Gg_ytJB18pR'
+    );
+
+    const result = document.getElementById('result');
+    const button = document.getElementById('test');
+
+    const { data: { user }, error } =
+      await sb.auth.getUser();
+
+    if (error || !user) {
+      document.getElementById('account').textContent =
+        'Geen ingelogde speler gevonden.';
+    } else {
+      const { data: player, error: playerError } =
+        await sb.from('players')
+          .select('display_name,role')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+
+      if (playerError || !player) {
+        document.getElementById('account').textContent =
+          'Spelersprofiel niet gevonden.';
+      } else {
+        document.getElementById('account').textContent =
+          'Ingelogd als: ' + player.display_name;
+
+        if (
+          player.display_name === 'Testspeler 2' &&
+          player.role === 'player'
+        ) {
+          button.disabled = false;
+        } else {
+          result.textContent =
+            'Deze test mag alleen met Testspeler 2.';
+        }
+      }
+    }
+
+    button.onclick = async () => {
+      button.disabled = true;
+      result.textContent = 'Beveiliging testen...';
+
+      const { data, error } = await sb.rpc(
+        'review_weekend_mission',
+        {
+          p_submission_id:
+            'a1c186ca-20ff-4e40-ad38-518738c817d0',
+          p_approve: true
+        }
+      );
+
+      if (error) {
+        result.textContent =
+          'VERWACHTE WEIGERING:\n' + error.message;
+      } else {
+        result.textContent =
+          'ONVERWACHT SUCCES:\n' + data;
+      }
+    };
+  </script>
+</body>
+</html>
