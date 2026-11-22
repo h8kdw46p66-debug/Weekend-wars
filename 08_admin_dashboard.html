@@ -1,9 +1,49 @@
-<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weekend Wars | Spelleider</title><style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#101013;color:#f7f7f8;font:16px/1.5 system-ui,sans-serif}.wrap{max-width:850px;margin:auto;padding:20px 15px 55px}header{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid #393940;padding-bottom:15px}.logo{font-weight:900;letter-spacing:.12em}.logo span{color:#ed5263}h1{font-size:clamp(28px,6vw,40px)}h2{font-size:20px;margin:0 0 10px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.13em;color:#f16b79;text-transform:uppercase}.muted,small{color:#b8b8bf}.card{background:#1e1e23;border:1px solid #393940;border-radius:14px;padding:18px;margin:14px 0}.item{padding:16px 0;border-top:1px solid #393940}.item:first-child{border-top:0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat{font-size:32px;font-weight:800}button{background:#b8293c;border:0;border-radius:9px;color:#fff;padding:11px 14px;font:inherit;cursor:pointer}button.secondary{background:#38383f}button.approve{background:#24734c}button.reject{background:#923541}button:disabled{opacity:.5;cursor:not-allowed}input,select{width:100%;padding:11px;margin:8px 0;background:#111115;color:#fff;border:1px solid #55555d;border-radius:8px;font:inherit}label{display:block;margin-top:10px;font-weight:600}.notice{background:#2a2226;border:1px solid #61323a;padding:13px;border-radius:9px;white-space:pre-wrap}.status{color:#ffb2b9;font-size:14px;margin:8px 0}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.lbrow{display:flex;align-items:center;gap:12px;padding:12px 8px;border-bottom:1px solid #393940}.lbrow.me{background:#342329;border-radius:9px}.lbname{flex:1}.rank{font-size:22px;min-width:36px}.preview{max-width:100%;max-height:340px;border-radius:9px;margin:10px 0}a{color:#ff8992}[hidden]{display:none!important}@media(max-width:460px){.grid{grid-template-columns:1fr}}
-</style></head><body><div class="wrap"><header><div class="logo">WEEKEND <span>WARS</span></div><button id="logout" class="secondary" hidden>Uitloggen</button></header><p class="eyebrow">Münster 2027 · Spelleider</p><h1>Missies beoordelen</h1><div id="message" class="notice">Verbinding controleren…</div><section id="login" class="card" hidden><h2>Inloggen als spelleider</h2><form id="loginForm"><label>E-mailadres<input id="email" type="email" required autocomplete="username"></label><label>Wachtwoord<input id="password" type="password" required autocomplete="current-password"></label><button id="loginButton">Inloggen</button></form></section><div id="dashboard" hidden><p id="adminName" class="muted"></p><div class="grid"><div class="card"><div class="eyebrow">Openstaand</div><div id="pendingCount" class="stat">0</div></div><div class="card"><div class="eyebrow">Beoordeeld</div><div id="reviewedCount" class="stat">0</div></div></div><section class="card"><h2>Missies beoordelen <button id="refresh" class="secondary">Vernieuwen</button></h2><div id="pendingList"></div></section><section class="card"><h2>Eerder beoordeeld</h2><div id="reviewedList"></div></section><small>Weekend Wars 9.0</small></div></div><script type="module">import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';const sb=createClient('https://zdezfkqmhbociagldlgo.supabase.co','sb_publishable_c-MVxESLRtAU1xtzZyD1Gg_ytJB18pR',{auth:{storageKey:'weekend-wars-admin-auth'}});const $=id=>document.getElementById(id);const check=(e)=>{if(e)throw Error(e.message)};const el=(tag,txt,cls)=>{const x=document.createElement(tag);x.textContent=txt??'';if(cls)x.className=cls;return x};const notice=t=>{$('message').hidden=false;$('message').textContent=t};const clearNotice=()=>{$('message').hidden=true};
-async function loadDashboard(){$('dashboard').hidden=true;$('login').hidden=true;notice('Spelleidersaccount controleren…');try{const {data:{session},error:se}=await sb.auth.getSession();check(se);if(!session){$('login').hidden=false;$('logout').hidden=true;notice('Log in met je spelleidersaccount.');return}const {data:{user},error:ue}=await sb.auth.getUser();check(ue);if(!user)throw Error('Geen geldige sessie.');const {data:p,error:pe}=await sb.from('players').select('display_name,role').eq('auth_user_id',user.id).maybeSingle();check(pe);if(!p||p.role!=='admin'){notice('Dit account heeft geen spelleidersrechten.');$('logout').hidden=false;return}$('adminName').textContent='Ingelogd als '+p.display_name;await submissions();$('dashboard').hidden=false;$('logout').hidden=false;clearNotice()}catch(e){notice('Laden niet gelukt: '+e.message);$('logout').hidden=false}}
-async function submissions(){const {data,error}=await sb.rpc('get_weekend_submissions_v9');check(error);const pending=(data||[]).filter(s=>s.submission_status==='pending'),reviewed=(data||[]).filter(s=>s.submission_status!=='pending');$('pendingCount').textContent=pending.length;$('reviewedCount').textContent=reviewed.length;$('pendingList').replaceChildren();$('reviewedList').replaceChildren();if(!pending.length)$('pendingList').append(el('p','Geen openstaande missies.','muted'));if(!reviewed.length)$('reviewedList').append(el('p','Nog geen beoordeelde missies.','muted'));for(const s of pending)$('pendingList').append(await card(s,true));for(const s of reviewed)$('reviewedList').append(await card(s,false))}
-async function card(s,pending){const d=el('div','','item');d.append(el('strong',s.player_name+' · '+s.mission_points+' punten'),el('div',s.mission_title),el('div',s.mission_description||'','muted'),el('div','Status: '+s.submission_status,'status'));if(s.submitted_at)d.append(el('small','Ingediend: '+new Date(s.submitted_at).toLocaleString('nl-NL')));if(s.evidence_method==='code')d.append(el('p','🔐 Geheime code correct ingevoerd.'));if(s.evidence_method==='witness')d.append(el('p','👥 Getuige: '+(s.witness_name||'Onbekend')+' · '+(s.witness_confirmed?'Bevestigd':'Nog niet bevestigd')));if(['photo','video'].includes(s.evidence_method)&&s.evidence_path){const b=el('button','Bewijs bekijken','secondary');d.append(b);b.onclick=async()=>{b.disabled=true;try{const {data,error}=await sb.storage.from('mission-evidence').createSignedUrl(s.evidence_path,60);check(error);const wrap=el('div');const media=document.createElement(s.evidence_method==='photo'?'img':'video');media.className='preview';media.src=data.signedUrl;if(s.evidence_method==='video')media.controls=true;media.onload=()=>URL.revokeObjectURL?.('');wrap.append(media);const old=d.querySelector('.preview');if(old)old.remove();d.append(wrap)}catch(e){notice('Bewijs openen mislukt: '+e.message)}finally{b.disabled=false}}}if(pending){const actions=el('div','','actions'),yes=el('button','Goedkeuren','approve'),no=el('button','Afwijzen','reject');if(s.evidence_method==='witness'&&!s.witness_confirmed){yes.disabled=true;yes.title='Wacht op bevestiging van getuige'}yes.onclick=()=>review(s,true,[yes,no]);no.onclick=()=>review(s,false,[yes,no]);actions.append(yes,no);d.append(actions)}return d}
-async function review(s,approve,buttons){if(!confirm('Missie "'+s.mission_title+'" van '+s.player_name+' '+(approve?'goedkeuren':'afwijzen')+'?'))return;buttons.forEach(b=>b.disabled=true);notice('Beoordeling verwerken…');try{const {error}=await sb.rpc('review_weekend_mission',{p_submission_id:s.submission_id,p_approve:approve});check(error);await submissions();clearNotice()}catch(e){notice('Beoordeling mislukt: '+e.message);buttons.forEach(b=>b.disabled=false)}}
-$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;notice('Inloggen…');try{const {error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});check(error);$('password').value='';await loadDashboard()}catch(e){notice('Inloggen mislukt: '+e.message)}finally{$('loginButton').disabled=false}};$('logout').onclick=async()=>{const {error}=await sb.auth.signOut();if(error){notice(error.message);return}$('dashboard').hidden=true;$('logout').hidden=true;$('login').hidden=false;notice('Je bent uitgelogd.')};$('refresh').onclick=async()=>{notice('Vernieuwen…');try{await submissions();clearNotice()}catch(e){notice(e.message)}};loadDashboard();
-</script></body></html>
+
+CREATE OR REPLACE FUNCTION public.get_weekend_completed_missions()
+RETURNS TABLE (
+  submission_id uuid,
+  player_id uuid,
+  player_name text,
+  mission_title text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+  SELECT
+    s.id AS submission_id,
+    p.id AS player_id,
+    p.display_name AS player_name,
+    m.title AS mission_title
+
+  FROM public.submissions s
+
+  JOIN public.mission_assignments ma
+    ON ma.id = s.assignment_id
+
+  JOIN public.players p
+    ON p.id = ma.player_id
+
+  JOIN public.missions m
+    ON m.id = ma.mission_id
+
+  WHERE s.status = 'approved'
+    AND p.weekend_id = m.weekend_id
+    AND p.weekend_id IN (
+      SELECT admin.weekend_id
+      FROM public.players admin
+      WHERE admin.auth_user_id = auth.uid()
+        AND admin.role = 'admin'
+    )
+
+  ORDER BY p.display_name, m.title;
+$$;
+
+REVOKE ALL ON FUNCTION
+  public.get_weekend_completed_missions()
+FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION
+  public.get_weekend_completed_missions()
+TO authenticated;
